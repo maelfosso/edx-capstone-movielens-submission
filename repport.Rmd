@@ -101,6 +101,23 @@ When you click the **Knit** button a document will be generated that includes bo
 summary(cars)
 ```
 
+## Using SQLite
+
+Since the execution of Collaborative Filtering approach takes a long time for a single value of k (k=700), we decided to use a pipeline approach.
+The conveniences from using the online running was
+1. Running takes long time
+2. We were obliged to restart the process from the beginning if anything happens during the execution
+3. No possible to use the computer while running the code
+
+The goal of the data pipeline approach are
+1. The different step must be independent
+2. We should be able to start at any step. Knowing that the previous one ends with result into the database, starting a new step must be done by taking data into tables
+3. Maximizing the place to parallelize the process
+
+Each step must be characterise by
+- Input from a database table
+- Output into a database table
+
 ## Including Plots
 
 You can also embed plots, for example:

@@ -1,5 +1,3 @@
-setwd("~/Documents/Learning/edx/data science - capstone/movielens/")
-
 ##########################################################
 # Create edx and final_holdout_test sets 
 ##########################################################

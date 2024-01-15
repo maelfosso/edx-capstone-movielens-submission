@@ -49,4 +49,9 @@ po/*~
 rsconnect/
 
 # for this project
+# movielens files
 ml-*
+
+# sqlite database
+movielensDB.db
+

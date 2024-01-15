@@ -3,6 +3,7 @@ library(dplyr)
 library(caret)
 library(matrixStats) # colSds
 library(factoextra) # get_dist
+library(pbapply)
 
 # 0- utilities
 head(edx)
@@ -63,43 +64,30 @@ user_movie_to_rate <- valid %>%
 
 # 2- write a function taking k. create a cluster with k centers, predict the rating of the user from validation dataset and calculate the RMSE
 rate_movie <- function(x, movies_with_cluster) {
+  
   currentUserId = x[1]
   currentMovieId = x[2]
-  
-  movieCluster = movies_with_cluster %>%
-    filter(movieId == currentMovieId) %>%
-    pull(cluster)
-  
-  # print(paste(currentUserId, currentMovieId, movieCluster, sep = " - "))
-  # print(x)
-  # print("---")
-  # print(currentUserId)
-  # print(currentMovieId)
-  # print("*****")
-  
-  movies_in_cluster <- movies_with_cluster %>%
-    filter(
-      cluster == movieCluster & # all the movies in the same cluster than him
-        movieId != currentMovieId # remove the movie we want to predict
-    )
-  # print(movies_with_cluster)
-  # print(currentMovieId %in% as.numeric(movies_with_cluster$movieId))
-  # print("===========")
-  # print(edx %>%
+  moviesInCluster = as.numeric(str_split(x[4], ",")[[1]])
+
+  # print(paste('rate movie: ', currentUserId, currentMovieId, sep = ' '))
+  # movieCluster = movies_with_cluster %>%
+  #   filter(movieId == currentMovieId) %>%
+  #   pull(cluster)
+  # 
+  # movies_in_cluster <- movies_with_cluster %>%
   #   filter(
-  #     userId == currentUserId &
-  #       movieId %in% as.numeric(movies_in_cluster$movieId)
-  #   ))
-  user_ratings_cluster <- edx %>%
+  #     cluster == movieCluster & # all the movies in the same cluster than him
+  #       movieId != currentMovieId # remove the movie we want to predict
+  #   )
+
+  user_ratings_cluster <- train %>%
     filter(
       userId == currentUserId &
-        movieId %in% as.numeric(movies_in_cluster$movieId)
+        movieId %in% moviesInCluster
     ) %>% # all the ratings done by userId on movies in the cluster
     pull(rating)
-  # print(user_ratings_cluster)
+
   rate <- mean(user_ratings_cluster, na.rm = TRUE)
-  # print(rate)
-  # print("*_*_**_*__*_*_")
   
   c(currentUserId, currentMovieId, predictedRating = rate)
 }
@@ -107,17 +95,38 @@ rate_movie <- function(x, movies_with_cluster) {
 clusters_with_k <- function(k) {
   print(k)
   km <- kmeans(scaled_train_movies, centers = k, nstart = 25)
-  print(dim(scaled_train_movies))
-  print(length(km$cluster))
+
   movies_with_cluster <- scaled_train_movies %>%
     mutate(
       cluster = as.numeric(km$cluster),
       movieId = as.numeric(row.names(scaled_train_movies))
     )
   
-  apply(user_movie_to_rate, 1, function(x) { rate_movie(x, y) })
+  tmp <- inner_join(
+    user_movie_to_rate,
+    movies_with_cluster,
+    by = "movieId"
+  ) %>%
+    select(userId, movieId, cluster)
+  
+  # head(tmp)
+  
+  movies_in_cluster <- movies_with_cluster |> 
+    distinct(cluster, movieId) |> 
+    group_by(cluster) |> 
+    mutate(moviesInCluster = paste0(movieId, collapse = ",")) |> 
+    distinct(cluster, moviesInCluster)
+  
+  tmp2 <- tmp |>
+    inner_join(movies_in_cluster, by = "cluster") |>
+    mutate(moviesInCluster = str_remove(moviesInCluster, as.character(movieId)))
+  
+  # head(tmp2)
+  # apply(user_movie_to_rate, 1, function(x) { rate_movie(x, movies_with_cluster) })
+  op <- pboptions(type="timer")
+  pbapply(tmp2, 1, rate_movie) # function(x) { rate_movie(x, movies_with_cluster) })
 }
 
 # 3- run the previous function for k = 1:750 and plot the RMSE versus k
-clusters_with_k(700)
+# clusters_with_k(700)
 # 4- update the report
