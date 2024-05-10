@@ -43,11 +43,18 @@ create_train_and_test_sets <- function() {
   # https://grouplens.org/datasets/movielens/10m/
   # http://files.grouplens.org/datasets/movielens/ml-10m.zip
   
+  # MovieLens 100K dataset
+  # https://grouplens.org/datasets/movielens/100k/
+  # https://files.grouplens.org/datasets/movielens/ml-100k.zip
+  # We are using this one instead of the one above because
+  # my computer doesn't have enough resources to support the 10M dataset
+
+  movieLensURL = "https://files.grouplens.org/datasets/movielens/ml-100K.zip"
   options(timeout = 120)
   
   dl <- "ml-10M100K.zip"
   if(!file.exists(dl))
-    download.file("https://files.grouplens.org/datasets/movielens/ml-10m.zip", dl)
+    download.file(movieLensURL, dl)
   
   ratings_file <- "ml-10M100K/ratings.dat"
   if(!file.exists(ratings_file))
