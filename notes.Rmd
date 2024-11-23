@@ -1,0 +1,18 @@
+Here is the list of all the movies
+my algorithm is based on this principle: If an user correctly rate a movie then
+he will also rate the movie that a looking like the ones he has already rated.
+
+- Between all the movies, What are the movies that are similar to each others?
+- If I would like to predict the rating an user would give on a movie, then, I will 
+start by finding all the movies that are similar to that movie (movie to predict ratings)
+The ratings of the user will be the mean of the ratings that same user give to the movies similar to 
+that movie to predict the ratings
+
+The issue will that approach is that :
+  the data give to us is the ratings data. It means that we are supposed to 
+  split the ratings into train/test 
+  But in the algorithm described above no splitting is done
+  
+A movie is defined by:
+  - its own properties: release date, genre, 
+  - a vector of rating from users. 

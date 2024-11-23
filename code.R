@@ -1,84 +1,102 @@
-library(tidyverse)
-library(dplyr)
-library(caret)
-library(matrixStats) # colSds
-library(factoextra) # get_dist
+if(!require(tidyverse)) install.packages("tidyverse", repos = "http://cran.us.r-project.org")
+if(!require(caret)) install.packages("caret", repos = "http://cran.us.r-project.org")
 
+if(!require(cmfrec)) install.packages("cmfrec", repos = "http://cran.us.r-project.org")
+if(!require(Matrix)) install.packages("Matrix", repos = "http://cran.us.r-project.org")
+if(!require(MatrixExtra)) install.packages("MatrixExtra")
+if(!require(stringr)) install.packages("stringr", repos = "http://cran.us.r-project.org")
+
+library(tidyverse)
+library(caret)
+
+library(cmfrec)
+library(Matrix)
+library(MatrixExtra)
+library(stringr)
+
+
+##########################################################
+# Create new features from movies data
+##########################################################
+
+movie_genres <- c("Action", "Adventure", "Animation", "Children", "Comedy",
+                  "Crime", "Documentary", "Drama", "Fantasy", "Film-Noir",
+                  "Horror", "Musical", "Mystery", "Romance", "Sci-Fi", "Thriller",
+                  "War", "Western")
+
+genres <- edx$genres
+
+split_genre <- function(genre) {
+  s <- unlist(str_split(genre, fixed("|")))
+  ix <- rep(0, length(movie_genres))
+  ix[match(s, movie_genres)] <- 1
+  
+  return(ix)
+}
+
+genres.splitted <- do.call(rbind, lapply(genres, FUN=split_genre))
+colnames(genres.splitted) <- movie_genres
+
+movies.data <- genres.splitted
+movies.name.splitted <- edx %>%
+  mutate(
+    year = as.integer(str_extract(title, "(?<=\\()\\d+(?=\\)$)")),
+    name = str_squish(str_remove(title, " \\(\\d+\\)$"))
+  ) %>% select(name, year)
+
+movies.data <- cbind(movies.data, year = movies.name.splitted$year)
 
 head(edx)
 
-# how many unique movies do we have
-length(unique(edx$movieId))
+edx.data <- cbind(edx, movies.data) %>%
+  select(-c(title, genres))
 
-# how many unique users do we have
 
-edx %>% summarize(count = n_distinct(userId)) %>%
-  pull(count)
+##########################################################
+# Create Train and Test sets 
+##########################################################
 
-# How many movies do a user rate?
 
-edx %>%
-  group_by(userId) %>%
-  summarize(count = n_distinct(movieId)) %>%
-  summarize(min = min(count), max = max(count))
+## Split the EDX dataset to 80% of training and 20% of testing
 
-# build a movie database with a set of characteristique for each movie
+set.seed(1, sample.kind="Rounding") # if using R 3.6 or later
+# set.seed(1) # if using R 3.5 or earlier
+test_index <- createDataPartition(y = edx.data$rating, times = 1, p = 0.25, list = FALSE)
+train.edx <- edx.data[-test_index,]
+temp <- edx.data[test_index,]
 
-edx %>% 
-  distinct(movieId, title, genres) %>%
-  mutate(value = 1) %>%
-  # separate(genres, c("first_variable_name", "second_variable_name"), extra = "merge") %>%
-  pivot_wider(-c(movieId, title), names_from = genres, values_from = value) %>%
-  head()
+# Make sure userId and movieId in final hold-out test set are also in edx set
+test.edx <- temp %>%
+  semi_join(train.edx, by = "movieId") %>%
+  semi_join(train.edx, by = "userId")
 
-movies <- edx %>%
-  distinct(movieId, title, genres) %>%
-  mutate(
-    kind = str_split(str_squish(genres), "\\|"),
-    year = as.integer(str_extract(title, "(?<=\\()\\d+(?=\\)$)")),
-    name = str_squish(str_remove(title, " \\(\\d+\\)$"))
-  ) %>%
-  unnest_wider(kind, names_sep = "_") %>%
-  pivot_longer(-c(movieId, title, genres, name, year), names_to = "kind", values_to = "W") %>%
-  select(movieId, title, name, year, W) %>%
-  filter(!is.na(W)) %>%
-  mutate(temp = 1) %>%
-  pivot_wider(names_from = W, values_from = temp, values_fill = list(temp = 0))
+# Add rows removed from final hold-out test set back into edx set
+removed <- anti_join(temp, test.edx)
+train.edx <- rbind(train.edx, removed)
 
-movies <- as.data.frame(movies)
-rownames(movies) <- movies$movieId
-rownames(movies)
+rm(test_index, temp, removed)
 
-movies <- movies %>%
-  select(-c(movieId, title, name, year, `(no genres listed)`))
+##########################################################
+# Finding the best number of factors k
+##########################################################
 
-head(movies)
-m <- scale(movies)
-colSds(as.matrix(m))
-colMeans(m)
-m <- sweep(movies, 2, colMeans(movies))
-m <- sweep(m, 2, colSds(as.matrix(movies)), FUN="/")
-x <- dist(m)
-x <- get_dist(m)
-fviz_dist(x, gradient = list(low = "#00AFBB", mid = "white", high = "#FC4E07"))
-rm(x)
-k2 <- kmeans(m, centers = 500, nstart = 25)
-k2
-fviz_cluster(k2, data = m)
+rmse <- function(y, y_) {
+  return(sqrt(mean((y - y_)^2)))
+}
 
-y <- m %>%
-  as_tibble() %>%
-  mutate(cluster = k2$cluster,
-         movieId = row.names(m))
-head(y)
-y %>% filter(movieId == 316) %>% pull(cluster)
+X.train <- train.edx %>% select(userId, movieId, rating)
+X.test <- test.edx %>% select(userId, movieId, rating)
 
-user_movie_to_rate %>%
-  head(3) %>%
-  rowwise() %>%
-  map_df( ~ rate_movie(.x, y) )
+errors <- c()
+for (k in 3:100) {
+  model <- CMF(X.train, k = k, method = 'lbfgs',
+               user_bias = TRUE, item_bias = TRUE,
+               center = TRUE,
+               # NA_as_zero = TRUE, 
+               nthreads = 1, verbose = FALSE, seed = 1)
+  
+  predictions <- predict(model, user=X.test$userId, item=X.test$movieId)
+  
+  errors <- c(errors, rmse(X.test$rating, predictions))
+}
 
-apply(user_movie_to_rate |> head(3), 1, function(x) { rate_movie(x, y) })
-names(y)
-user_movie_to_rate[1, ]
-c <- y |> filter(movieId == 316) |> pull(cluster)
