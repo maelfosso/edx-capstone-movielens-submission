@@ -55,3 +55,7 @@ ml-*
 # sqlite database
 movielensDB.db
 
+# knit
+report_files
+
+
