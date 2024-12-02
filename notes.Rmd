@@ -304,3 +304,16 @@ The predictions error is `r fht_error`
 log_info("END")
 ```
 
+
+
+## bias - No Movies
+End k=8; Error=0.803558787113809
+"Duration: 5.65565135419369"
+k.min = 8
+The predictions error is 0.794544360572509
+
+## No bias - No Movies
+End k=9; Error=0.809179634910124
+"Duration: 4.65493560638693"
+"k.min: 9"
+"The predictions error is0.798824309923903"

@@ -163,6 +163,9 @@ X.train.movies <- scale(X.train.movies)
 X.validation.movies <- validation.edx %>% select(-c(userId, movieId, rating))
 X.validation.movies <- scale(X.validation.movies)
 
+## Create 5 folds for cross-validation with the good hyper-parameters
+X.folds <- createFolds(y = X$rating, k = 5, list = TRUE, returnTrain = TRUE)
+
 ##########################################################
 # Matrix factorization with bias but without movies data
 ##########################################################
@@ -184,8 +187,8 @@ for (k in 3:30) {
                # NA_as_zero = TRUE, 
                nthreads = 1, verbose = FALSE, seed = 1)
   
-  predictions <- predict(model, user=X.test$userId, item=X.test$movieId)
-  k_errors <- RMSE(X.test$rating, predictions)
+  predictions <- predict(model, user=X.validation$userId, item=X.validation$movieId)
+  k_errors <- RMSE(X.validation$rating, predictions)
   
   if (k_errors < best_error) {
     best_model <- model
@@ -203,7 +206,7 @@ print(paste0("Duration: ", (endTime - startTime)))
 log_info("Plot the result and find best k")
 
 # Plot the result
-errors.df <- data.frame(k = 3:50, error = errors)
+errors.df <- data.frame(k = 3:30, error = errors)
 plt <- ggplot(data=errors.df, aes(x = k, y = error)) + geom_line() + geom_point()
 ggsave("model-bias-no-movies.png", plt, path = ".") 
 
@@ -215,6 +218,26 @@ print(paste0("k.min: ", k.min))
 remove(errors.df, best_error, best_model, errors)
 
 log_info("Train the whole date with the best K and all data")
+
+# Compute training error using cross-validation
+errors.cv <- c()
+for (f in 1:5) {
+  fold <- X.folds[[f]]
+  
+  model <- CMF(X[fold, ], k = k.min, method = 'lbfgs',
+               user_bias = TRUE, item_bias = TRUE,
+               center = TRUE,
+               # NA_as_zero = TRUE, 
+               nthreads = 1, verbose = FALSE, seed = 1)
+
+  predictions <- predict(model, user=X[-fold, ]$userId, item=X[-fold, ]$movieId)
+  errors.fold <- RMSE(X[-fold, ]$rating, predictions)
+  log_info("Error on fold {f}: {errors.fold}")
+
+  errors.cv <- c(errors.cv, errors.fold)
+}
+training.error <- mean(errors.cv)
+print(paste0("CV Errors (bias/no movies): ", training.error))
 
 # Train the model with all the data and the best number of factors
 model <- CMF(X, k = k.min, method = 'lbfgs',
@@ -250,8 +273,8 @@ for (k in 3:30) {
                # NA_as_zero = TRUE, 
                nthreads = 1, verbose = FALSE, seed = 1)
   
-  predictions <- predict(model, user=X.test$userId, item=X.test$movieId)
-  k_errors <- rmse(X.test$rating, predictions)
+  predictions <- predict(model, user=X.validation$userId, item=X.validation$movieId)
+  k_errors <- RMSE(X.validation$rating, predictions)
   
   if (k_errors < best_error) {
     best_model <- model
@@ -268,7 +291,7 @@ print(paste0("Duration: ", (endTime - startTime)))
 log_info("Plot the result and find best K")
 
 # Plot the result
-errors.df <- data.frame(k = 3:50, error = errors)
+errors.df <- data.frame(k = 3:30, error = errors)
 plt <- ggplot(data=errors.df, aes(x = k, y = error)) + geom_line() + geom_point()
 ggsave("model-no-bias-no-movies.png", plt, path = ".") 
 
@@ -280,12 +303,34 @@ remove(errors.df, best_error, best_model, errors)
 
 log_info("Train the whole date with the best K and all data")
 
+
+# Compute training error using cross-validation
+errors.cv <- c()
+for (f in 1:5) {
+  fold <- X.folds[[f]]
+  
+  model <- CMF(X[fold, ], k = k.min, method = 'lbfgs',
+               user_bias = FALSE, item_bias = FALSE,
+               center = TRUE,
+               # NA_as_zero = TRUE, 
+               nthreads = 1, verbose = FALSE, seed = 1)
+  
+  predictions <- predict(model, user=X[-fold, ]$userId, item=X[-fold, ]$movieId)
+  errors.fold <- RMSE(X[-fold, ]$rating, predictions)
+  log_info("Error on fold {f}: {errors.fold}")
+  
+  errors.cv <- c(errors.cv, errors.fold)
+}
+training.error <- mean(errors.cv)
+print(paste0("CV Errors (no bias/no movies): ", training.error))
+
+
 # Train the model with all the data and the best number of factors
 model <- CMF(X, k = k.min, method = 'lbfgs',
-             user_bias = TRUE, item_bias = TRUE,
+             user_bias = FALSE, item_bias = FALSE,
              center = TRUE,
              # NA_as_zero = TRUE, 
-             nthreads = 1, verbose = TRUE, seed = 1)
+             nthreads = 1, verbose = FALSE, seed = 1)
 
 # Run the model on the Hold-out Test
 predictions <- predict(model, user=X.fht$userId, item=X.fht$movieId)
@@ -315,8 +360,8 @@ print(paste0("The predictions error is", fht_error))
 #                # NA_as_zero = TRUE, 
 #                nthreads = 1, verbose = FALSE, seed = 1)
 #   
-#   predictions <- predict(model, user=X.test$userId, item=X.test$movieId)
-#   k_errors <- rmse(X.test$rating, predictions)
+#   predictions <- predict(model, user=X.validation$userId, item=X.validation$movieId)
+#   k_errors <- RMSE(X.validation$rating, predictions)
 #   
 #   if (k_errors < best_error) {
 #     best_model <- model
@@ -380,8 +425,8 @@ print(paste0("The predictions error is", fht_error))
 #                # NA_as_zero = TRUE, 
 #                nthreads = 1, verbose = FALSE, seed = 1)
 #   
-#   predictions <- predict(model, user=X.test$userId, item=X.test$movieId)
-#   k_errors <- rmse(X.test$rating, predictions)
+#   predictions <- predict(model, user=X.validation$userId, item=X.validation$movieId)
+#   k_errors <- RMSE(X.validation$rating, predictions)
 #   
 #   if (k_errors < best_error) {
 #     best_model <- model
