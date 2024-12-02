@@ -14,6 +14,13 @@ library(logger)
 library(stringr)
 library(ggplot2)
 
+##########################################################
+# Create edx and final_holdout_test sets 
+##########################################################
+log_info(str_to_upper("Create edx and final_holdout_test sets"))
+source("create_train_and_final_holdout_test_sets.R")
+
+
 ########
 # QUIZ.#
 ########
@@ -286,133 +293,133 @@ fht_error <- RMSE(X.fht$rating, predictions)
 fht_error
 print(paste0("The predictions error is", fht_error))
 
-
-##########################################################
-# Matrix factorization with bias and movies data
-##########################################################
-log_info(str_to_upper("Matrix factorization with bias and movies data"))
-
-# Finding the best number of factors k
-log_info("Finding the best number of factors k")
-
-errors <- c()
-best_model <- NULL
-best_error <- 10e6
-
-startTime <- Sys.time()
-for (k in 3:30) {
-  log_info("Start k={k}")
-  model <- CMF(X.train, I = X.train.movies, k = k, method = 'lbfgs',
-               user_bias = TRUE, item_bias = TRUE,
-               center = TRUE,
-               # NA_as_zero = TRUE, 
-               nthreads = 1, verbose = FALSE, seed = 1)
-  
-  predictions <- predict(model, user=X.test$userId, item=X.test$movieId)
-  k_errors <- rmse(X.test$rating, predictions)
-  
-  if (k_errors < best_error) {
-    best_model <- model
-    best_error <- k_errors
-  }
-  
-  errors <- c(errors, k_errors)
-  log_info("End k={k}; Error={k_errors}")
-}
-endTime <- Sys.time()
-
-print(paste0("Duration: ", (endTime - startTime)))
-
-log_info("Plot the result and find best K")
-
-# Plot the result
-errors.df <- data.frame(k = 3:50, error = errors)
-plt <- ggplot(data=errors.df, aes(x = k, y = error)) + geom_line() + geom_point()
-ggsave("model-with-bias-and-movies.png", plt, path = ".") 
-
-# From the plot, find the best number of factors
-k.min <- which.min(errors)
-print(paste0("k.min: ", k.min))
-
-remove(errors.df, best_error, best_model, errors)
-
-log_info("Train the whole date with the best K and all data")
-
-# Train the model with all the data and the best number of factors
-model <- CMF(X, k = k.min, method = 'lbfgs',
-             user_bias = TRUE, item_bias = TRUE,
-             center = TRUE,
-             # NA_as_zero = TRUE, 
-             nthreads = 1, verbose = TRUE, seed = 1)
-
-# Run the model on the Hold-out Test
-predictions <- predict(model, user=X.fht$userId, item=X.fht$movieId)
-fht_error <- RMSE(X.fht$rating, predictions)
-fht_error
-print(paste0("The predictions error is", fht_error))
-
-
-##########################################################
-# Matrix factorization without bias but with movies data
-##########################################################
-log_info(str_to_upper("Matrix factorization without bias but with movies data"))
-
-# Finding the best number of factors k
-log_info("Finding the best number of factors k")
-
-errors <- c()
-best_model <- NULL
-best_error <- 10e6
-
-startTime <- Sys.time()
-for (k in 3:30) {
-  log_info("Start k={k}")
-  model <- CMF(X.train, k = k, method = 'lbfgs',
-               user_bias = FALSE, item_bias = FALSE,
-               center = TRUE,
-               # NA_as_zero = TRUE, 
-               nthreads = 1, verbose = FALSE, seed = 1)
-  
-  predictions <- predict(model, user=X.test$userId, item=X.test$movieId)
-  k_errors <- rmse(X.test$rating, predictions)
-  
-  if (k_errors < best_error) {
-    best_model <- model
-    best_error <- k_errors
-  }
-  
-  errors <- c(errors, k_errors)
-  log_info("End k={k}; Error={k_errors}")
-}
-endTime <- Sys.time()
-
-print(paste0("Duration: ", (endTime - startTime)))
-
-log_info("Plot the result and find best K")
-
-# Plot the result
-errors.df <- data.frame(k = 3:50, error = errors)
-plt <- ggplot(data=errors.df, aes(x = k, y = error)) + geom_line() + geom_point()
-ggsave("model-no-bias-with-movies.png", plt, path = ".") 
-
-# From the plot, find the best number of factors
-k.min <- which.min(errors)
-print(paste0("k.min: ", k.min))
-
-remove(errors.df, best_error, best_model, errors)
-
-log_info("Train the whole date with the best K and all data")
-
-# Train the model with all the data and the best number of factors
-model <- CMF(X, k = k.min, method = 'lbfgs',
-             user_bias = TRUE, item_bias = TRUE,
-             center = TRUE,
-             # NA_as_zero = TRUE, 
-             nthreads = 1, verbose = TRUE, seed = 1)
-
-# Run the model on the Hold-out Test
-predictions <- predict(model, user=X.fht$userId, item=X.fht$movieId)
-fht_error <- RMSE(X.fht$rating, predictions)
-fht_error
-print(paste0("The predictions error is", fht_error))
-
+# 
+# ##########################################################
+# # Matrix factorization with bias and movies data
+# ##########################################################
+# log_info(str_to_upper("Matrix factorization with bias and movies data"))
+# 
+# # Finding the best number of factors k
+# log_info("Finding the best number of factors k")
+# 
+# errors <- c()
+# best_model <- NULL
+# best_error <- 10e6
+# 
+# startTime <- Sys.time()
+# for (k in 3:30) {
+#   log_info("Start k={k}")
+#   model <- CMF(X.train, I = X.train.movies, k = k, method = 'lbfgs',
+#                user_bias = TRUE, item_bias = TRUE,
+#                center = TRUE,
+#                # NA_as_zero = TRUE, 
+#                nthreads = 1, verbose = FALSE, seed = 1)
+#   
+#   predictions <- predict(model, user=X.test$userId, item=X.test$movieId)
+#   k_errors <- rmse(X.test$rating, predictions)
+#   
+#   if (k_errors < best_error) {
+#     best_model <- model
+#     best_error <- k_errors
+#   }
+#   
+#   errors <- c(errors, k_errors)
+#   log_info("End k={k}; Error={k_errors}")
+# }
+# endTime <- Sys.time()
+# 
+# print(paste0("Duration: ", (endTime - startTime)))
+# 
+# log_info("Plot the result and find best K")
+# 
+# # Plot the result
+# errors.df <- data.frame(k = 3:50, error = errors)
+# plt <- ggplot(data=errors.df, aes(x = k, y = error)) + geom_line() + geom_point()
+# ggsave("model-with-bias-and-movies.png", plt, path = ".") 
+# 
+# # From the plot, find the best number of factors
+# k.min <- which.min(errors)
+# print(paste0("k.min: ", k.min))
+# 
+# remove(errors.df, best_error, best_model, errors)
+# 
+# log_info("Train the whole date with the best K and all data")
+# 
+# # Train the model with all the data and the best number of factors
+# model <- CMF(X, k = k.min, method = 'lbfgs',
+#              user_bias = TRUE, item_bias = TRUE,
+#              center = TRUE,
+#              # NA_as_zero = TRUE, 
+#              nthreads = 1, verbose = TRUE, seed = 1)
+# 
+# # Run the model on the Hold-out Test
+# predictions <- predict(model, user=X.fht$userId, item=X.fht$movieId)
+# fht_error <- RMSE(X.fht$rating, predictions)
+# fht_error
+# print(paste0("The predictions error is", fht_error))
+# 
+# 
+# ##########################################################
+# # Matrix factorization without bias but with movies data
+# ##########################################################
+# log_info(str_to_upper("Matrix factorization without bias but with movies data"))
+# 
+# # Finding the best number of factors k
+# log_info("Finding the best number of factors k")
+# 
+# errors <- c()
+# best_model <- NULL
+# best_error <- 10e6
+# 
+# startTime <- Sys.time()
+# for (k in 3:30) {
+#   log_info("Start k={k}")
+#   model <- CMF(X.train, k = k, method = 'lbfgs',
+#                user_bias = FALSE, item_bias = FALSE,
+#                center = TRUE,
+#                # NA_as_zero = TRUE, 
+#                nthreads = 1, verbose = FALSE, seed = 1)
+#   
+#   predictions <- predict(model, user=X.test$userId, item=X.test$movieId)
+#   k_errors <- rmse(X.test$rating, predictions)
+#   
+#   if (k_errors < best_error) {
+#     best_model <- model
+#     best_error <- k_errors
+#   }
+#   
+#   errors <- c(errors, k_errors)
+#   log_info("End k={k}; Error={k_errors}")
+# }
+# endTime <- Sys.time()
+# 
+# print(paste0("Duration: ", (endTime - startTime)))
+# 
+# log_info("Plot the result and find best K")
+# 
+# # Plot the result
+# errors.df <- data.frame(k = 3:50, error = errors)
+# plt <- ggplot(data=errors.df, aes(x = k, y = error)) + geom_line() + geom_point()
+# ggsave("model-no-bias-with-movies.png", plt, path = ".") 
+# 
+# # From the plot, find the best number of factors
+# k.min <- which.min(errors)
+# print(paste0("k.min: ", k.min))
+# 
+# remove(errors.df, best_error, best_model, errors)
+# 
+# log_info("Train the whole date with the best K and all data")
+# 
+# # Train the model with all the data and the best number of factors
+# model <- CMF(X, k = k.min, method = 'lbfgs',
+#              user_bias = TRUE, item_bias = TRUE,
+#              center = TRUE,
+#              # NA_as_zero = TRUE, 
+#              nthreads = 1, verbose = TRUE, seed = 1)
+# 
+# # Run the model on the Hold-out Test
+# predictions <- predict(model, user=X.fht$userId, item=X.fht$movieId)
+# fht_error <- RMSE(X.fht$rating, predictions)
+# fht_error
+# print(paste0("The predictions error is", fht_error))
+# 
