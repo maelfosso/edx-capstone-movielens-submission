@@ -1,0 +1,2 @@
+INFO [2024-12-04 19:57:04] CREATE NEW FEATURES FROM MOVIES DATA
+INFO [2024-12-04 19:57:04] Multiple hot encoding applied on movie [genre]

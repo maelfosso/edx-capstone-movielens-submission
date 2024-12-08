@@ -1,0 +1,1 @@
+sudo apt install libcurl4-openssl-dev libfreetype6-dev libjpeg-dev libpng-dev libfontconfig1-dev libfribidi-dev libharfbuzz-dev libxml2-dev libtiff-dev libicu-dev libssl-dev zlib1g-dev make pandoc
