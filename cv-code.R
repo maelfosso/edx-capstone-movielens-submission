@@ -81,48 +81,280 @@ X.fht <- final_holdout_test %>% select(userId, movieId, rating)
 #####
 # Folds for CV
 #####
+log_info(str_to_upper("Create Folds for CV"))
+
+MAX_FOLDS = 5
 
 X.movies <- edx.data %>% select(-c(userId, movieId, rating))
 
-X.folds <- createFolds(y = X$rating, k = 5, list = TRUE, returnTrain = TRUE)
+X.folds <- createFolds(y = X$rating, k = MAX_FOLDS, list = TRUE, returnTrain = TRUE)
+
+X.fold.train = list()
+X.fold.test = list()
+X.fold.movies = list()
+
+for (f in 1:MAX_FOLDS) {
+  fold <- X.folds[[f]]
+  
+  fold.train <- X[fold, ]
+  fold.movies <- X.movies[fold, ]
+  
+  temp <- X[-fold, ]
+  
+  # Make sure userId and movieId in test set are also in train set
+  fold.test <- temp %>% 
+    semi_join(fold.train, by = "movieId") %>%
+    semi_join(fold.train, by = "userId")
+  
+  # Add rows removed from final hold-out test set back into edx set
+  removed <- anti_join(temp, fold.test)
+  fold.train <- rbind(fold.train, removed)
+  
+  X.fold.train[[f]] <- fold.train
+  X.fold.test[[f]] <- fold.test
+  X.fold.movies[[f]] <- fold.movies
+}
+
+MAX_KNN_K = 30
 
 ##########################################################
 # Matrix factorization with bias and movies data
 ##########################################################
 log_info(str_to_upper("Matrix factorization with bias and movies data"))
 
-k.min <- 9
+log_info("--------- Finding best K from CV")
 
-# Compute training error using cross-validation
-errors.cv <- c()
-for (f in 1:5) {
-  fold <- X.folds[[f]]
-  
-  X.fold.train <- X[fold, ]
-  X.fold.movies <- X.movies[fold, ]
-  
-  temp <- X[-fold, ]
-  
-  # Make sure userId and movieId in test set are also in train set
-  X.fold.test <- temp %>% 
-    semi_join(X.fold.train, by = "movieId") %>%
-    semi_join(X.fold.train, by = "userId")
-  
-  # Add rows removed from final hold-out test set back into edx set
-  removed <- anti_join(temp, X.fold.test)
-  X.fold.train <- rbind(X.fold.train, removed)
+training.errors.k <- c()
+for (k in 3:MAX_KNN_K) {
 
-  model <- CMF(X.fold.train, I = X.fold.movies, k = k.min, method = 'lbfgs',
-               user_bias = TRUE, item_bias = TRUE,
-               center = TRUE,
-               # NA_as_zero = TRUE,
-               nthreads = 1, verbose = FALSE, seed = 1)
+  # Compute training error using cross-validation
+  errors.cv <- c()
+  for (f in 1:MAX_FOLDS) {
+    fold.train <- X.fold.train[[f]]
+    fold.test <- X.fold.test[[f]]
+    fold.movies <- X.fold.movies[[f]]
+    
+    model <- CMF(fold.train, I = fold.movies, k = k, method = 'lbfgs',
+                 user_bias = TRUE, item_bias = TRUE,
+                 center = TRUE,
+                 # NA_as_zero = TRUE,
+                 nthreads = 1, verbose = FALSE, seed = 1)
+    
+    predictions <- predict(model, user = fold.test$userId, item =  fold.test$movieId)
+    errors.fold <- RMSE(fold.test$rating, predictions)
+    log_info("Error on fold {f}: {errors.fold}")
+    
+    errors.cv <- c(errors.cv, errors.fold)
+  }
 
-  predictions <- predict(model, user = X.fold.test$userId, item =  X.fold.test$movieId)
-  errors.fold <- RMSE(X.fold.test$rating, predictions)
-  log_info("Error on fold {f}: {errors.fold}")
+  training.error <- mean(errors.cv)
+  log_info("K={k} - Training errors (bias/movies): {training.error}")
 
-  errors.cv <- c(errors.cv, errors.fold)
+  training.errors.k  <- c(training.errors.k, training.error)
 }
-training.error <- mean(errors.cv)
-log_info("CV Errors (no bias/no movies): {training.error}")
+
+k.min <- which.min(training.errors.k) + 2
+best.rmse <- min(training.errors.k)
+log_info("CV with biais and movies data: k.min: {k.min} - best.rmse: {best.rmse}")
+
+# Plot the result
+errors.df <- data.frame(k = 3:MAX_KNN_K, error = training.errors.k)
+plt <- ggplot(data=errors.df, aes(x = k, y = error)) + geom_line() + geom_point()
+ggsave("cv-model-bias-with-movies.png", plt, path = ".")
+
+log_info("--------- Building the model with all the data and with the best K found")
+model <- CMF(X, I = X.movies, k = k.min, method = 'lbfgs',
+             user_bias = TRUE, item_bias = TRUE,
+             center = TRUE,
+             # NA_as_zero = TRUE,
+             nthreads = 1, verbose = TRUE, seed = 1)
+
+# Run the model on the Hold-out Test
+log_info("Run the model on the Hold-out Test")
+predictions <- predict(model, user = X.fht$userId, item = X.fht$movieId)
+fht_error <- RMSE(X.fht$rating, predictions)
+fht_error
+log_info("The predictions error is {fht_error}")
+
+
+
+##########################################################
+# Matrix factorization without bias and movies data
+##########################################################
+log_info(str_to_upper("Matrix factorization without bias and movies data"))
+
+log_info("--------- Finding best K from CV")
+
+training.errors.k <- c()
+for (k in 3:MAX_KNN_K) {
+  
+  # Compute training error using cross-validation
+  errors.cv <- c()
+  for (f in 1:MAX_FOLDS) {
+    fold.train <- X.fold.train[[f]]
+    fold.test <- X.fold.test[[f]]
+    fold.movies <- X.fold.movies[[f]]
+    
+    model <- CMF(fold.train, I = fold.movies, k = k, method = 'lbfgs',
+                 user_bias = FALSE, item_bias = FALSE,
+                 center = TRUE,
+                 # NA_as_zero = TRUE,
+                 nthreads = 1, verbose = FALSE, seed = 1)
+    
+    predictions <- predict(model, user = fold.test$userId, item =  fold.test$movieId)
+    errors.fold <- RMSE(fold.test$rating, predictions)
+    log_info("Error on fold {f}: {errors.fold}")
+    
+    errors.cv <- c(errors.cv, errors.fold)
+  }
+  
+  training.error <- mean(errors.cv)
+  log_info("K={k} - Training errors (no bias/movies): {training.error}")
+  
+  training.errors.k  <- c(training.errors.k, training.error)
+}
+
+k.min <- which.min(training.errors.k) + 2
+best.rmse <- min(training.errors.k)
+log_info("CV without biais and movies data: k.min: {k.min} - best.rmse: {best.rmse}")
+
+# Plot the result
+errors.df <- data.frame(k = 3:MAX_KNN_K, error = training.errors.k)
+plt <- ggplot(data=errors.df, aes(x = k, y = error)) + geom_line() + geom_point()
+ggsave("cv-model-no-bias-with-movies.png", plt, path = ".")
+
+log_info("--------- Building the model with all the data and with the best K found")
+model <- CMF(X, I = X.movies, k = k.min, method = 'lbfgs',
+             user_bias = FALSE, item_bias = FALSE,
+             center = TRUE,
+             # NA_as_zero = TRUE,
+             nthreads = 1, verbose = TRUE, seed = 1)
+
+# Run the model on the Hold-out Test
+log_info("Run the model on the Hold-out Test")
+predictions <- predict(model, user = X.fht$userId, item = X.fht$movieId)
+fht_error <- RMSE(X.fht$rating, predictions)
+fht_error
+log_info("The predictions error is {fht_error}")
+
+
+
+##########################################################
+# Matrix factorization with bias and without movies data
+##########################################################
+log_info(str_to_upper("Matrix factorization with bias and without movies data"))
+
+log_info("--------- Finding best K from CV")
+
+training.errors.k <- c()
+for (k in 3:MAX_KNN_K) {
+  
+  # Compute training error using cross-validation
+  errors.cv <- c()
+  for (f in 1:MAX_FOLDS) {
+    fold.train <- X.fold.train[[f]]
+    fold.test <- X.fold.test[[f]]
+    fold.movies <- X.fold.movies[[f]]
+    
+    model <- CMF(fold.train, k = k, method = 'lbfgs',
+                 user_bias = TRUE, item_bias = TRUE,
+                 center = TRUE,
+                 # NA_as_zero = TRUE,
+                 nthreads = 1, verbose = FALSE, seed = 1)
+    
+    predictions <- predict(model, user = fold.test$userId, item =  fold.test$movieId)
+    errors.fold <- RMSE(fold.test$rating, predictions)
+    log_info("Error on fold {f}: {errors.fold}")
+    
+    errors.cv <- c(errors.cv, errors.fold)
+  }
+  
+  training.error <- mean(errors.cv)
+  log_info("K={k} - Training errors (bias/no movies): {training.error}")
+  
+  training.errors.k  <- c(training.errors.k, training.error)
+}
+
+k.min <- which.min(training.errors.k) + 2
+best.rmse <- min(training.errors.k)
+log_info("CV with biais and no movies data: k.min: {k.min} - best.rmse: {best.rmse}")
+
+# Plot the result
+errors.df <- data.frame(k = 3:MAX_KNN_K, error = training.errors.k)
+plt <- ggplot(data=errors.df, aes(x = k, y = error)) + geom_line() + geom_point()
+ggsave("cv-model-bias-no-movies.png", plt, path = ".")
+
+log_info("--------- Building the model with all the data and with the best K found")
+model <- CMF(X, k = k.min, method = 'lbfgs',
+             user_bias = TRUE, item_bias = TRUE,
+             center = TRUE,
+             # NA_as_zero = TRUE,
+             nthreads = 1, verbose = TRUE, seed = 1)
+
+# Run the model on the Hold-out Test
+log_info("Run the model on the Hold-out Test")
+predictions <- predict(model, user = X.fht$userId, item = X.fht$movieId)
+fht_error <- RMSE(X.fht$rating, predictions)
+fht_error
+log_info("The predictions error is {fht_error}")
+
+
+
+##########################################################
+# Matrix factorization without bias and without movies data
+##########################################################
+log_info(str_to_upper("Matrix factorization without bias and without movies data"))
+
+log_info("--------- Finding best K from CV")
+training.errors.k <- c()
+for (k in 3:MAX_KNN_K) {
+  
+  # Compute training error using cross-validation
+  errors.cv <- c()
+  for (f in 1:MAX_FOLDS) {
+    fold.train <- X.fold.train[[f]]
+    fold.test <- X.fold.test[[f]]
+    # fold.movies <- X.fold.movies[[f]]
+    
+    model <- CMF(fold.train, k = k, method = 'lbfgs',
+                 user_bias = FALSE, item_bias = FALSE,
+                 center = TRUE,
+                 # NA_as_zero = TRUE,
+                 nthreads = 1, verbose = FALSE, seed = 1)
+    
+    predictions <- predict(model, user = fold.test$userId, item =  fold.test$movieId)
+    errors.fold <- RMSE(fold.test$rating, predictions)
+    log_info("Error on fold {f}: {errors.fold}")
+    
+    errors.cv <- c(errors.cv, errors.fold)
+  }
+  
+  training.error <- mean(errors.cv)
+  log_info("K={k} - Training errors (no bias/no movies): {training.error}")
+  
+  training.errors.k  <- c(training.errors.k, training.error)
+}
+
+k.min <- which.min(training.errors.k) + 2
+best.rmse <- min(training.errors.k)
+log_info("CV without biais and without movies data: k.min: {k.min} - best.rmse: {best.rmse}")
+
+# Plot the result
+errors.df <- data.frame(k = 3:MAX_KNN_K, error = training.errors.k)
+plt <- ggplot(data=errors.df, aes(x = k, y = error)) + geom_line() + geom_point()
+ggsave("cv-model-no-bias-no-movies.png", plt, path = ".")
+
+log_info("--------- Building the model with all the data and with the best K found")
+model <- CMF(X, k = k.min, method = 'lbfgs',
+             user_bias = FALSE, item_bias = FALSE,
+             center = TRUE,
+             # NA_as_zero = TRUE,
+             nthreads = 1, verbose = TRUE, seed = 1)
+
+# Run the model on the Hold-out Test
+log_info("Run the model on the Hold-out Test")
+predictions <- predict(model, user = X.fht$userId, item = X.fht$movieId)
+fht_error <- RMSE(X.fht$rating, predictions)
+fht_error
+log_info("The predictions error is {fht_error}")
+
