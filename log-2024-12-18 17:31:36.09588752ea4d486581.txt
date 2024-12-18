@@ -1,0 +1,9 @@
+INFO [2024-12-18 17:31:36] CREATE NEW FEATURES FROM MOVIES DATA
+INFO [2024-12-18 17:31:36] Multiple hot encoding applied on movie [genre]
+INFO [2024-12-18 17:41:54] Extract [year] & [title] from movie [name]
+INFO [2024-12-18 17:42:25] Create a new edx data frame with the previously created movie data
+INFO [2024-12-18 17:42:36] CREATE TRAIN AND VALIDATION SETS
+INFO [2024-12-18 17:59:02] MATRIX FACTORIZATION WITH BIAS AND MOVIES DATA
+INFO [2024-12-18 17:59:03] Finding the best number of factors k
+INFO [2024-12-18 17:59:07] Start k=35
+INFO [2024-12-18 18:03:16] Start k=35

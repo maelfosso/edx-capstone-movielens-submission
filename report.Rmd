@@ -93,7 +93,7 @@ Taking into consideration the users/movies bias and the users/movies features, w
 | False |   True   | Model-BnFy |
 | False |  False   | Model-BnFn |
 
-In R programming, there is a library called `cmfrec`, which can handle those 4 cases. In each of them, we will only focus on finding the excellent hyperparameter k such that $A$ and $B$ will be the best in terms of smallest `RMSE`.
+In R programming, there is a library called `cmfrec`, which can handle those 4 cases. In each of them, we will only focus on finding the excellent hyperparameter $K$ such that $A$ and $B$ will be the best in terms of smallest `RMSE`.
 
 ## Data preparation
 
@@ -150,8 +150,9 @@ edx.data <- cbind(edx, movies.data) %>%
   select(-c(title, genres))
 ```
 
-### Split data
-The data for training is reading. As we have to find the best K, the process consists of splitting the training data set `edx.data` into training and validation data sets.
+### Build the training and validation dataset
+
+As we have to find the best K, the process consists of splitting the training data set `edx.data` into training and validation data sets.
 The training data set will be used to create the model, and the validation dataset will be used to evaluate the obtained model. The process is always used for finding the best hyperparameters.
 
 We will split our `edx.data`  data set into 80% for training and 20% for validation.
@@ -175,10 +176,212 @@ train.edx <- rbind(train.edx, removed)
 rm(validation_index, temp, removed)
 ```
 
-# Results
+Once splitting the `edx` dataset, we then prepare the different data frame, so that they can be used in training and validation
+```{r eval=FALSE}
+## Extract (userId, movieId, rating) data frame from EDX
+X <- edx.data %>% select(userId, movieId, rating) # will be use to train the best model with all the training `edx` data.
+
+## Extract (userId, movieId, rating) data frame from the Final hold-out test
+X.fht <- final_holdout_test %>% select(userId, movieId, rating)
+
+## Extract (userId, movieId, rating) data frame for training and validation
+X.train <- train.edx %>% select(userId, movieId, rating)
+X.validation <- validation.edx %>% select(userId, movieId, rating)
+
+## Build data frame containing only movie features
+X.train.movies <- train.edx %>% select(-c(userId, movieId, rating))
+X.train.movies <- scale(X.train.movies)
+
+X.validation.movies <- validation.edx %>% select(-c(userId, movieId, rating))
+X.validation.movies <- scale(X.validation.movies)
+
+X.movies <- edx.data %>% select(-c(userId, movieId, **rating**)) # Movie data from multiple hot encoding
+```
+
+We can now, after those step, start finding the best models.
+
+## Finding the best models.
+
+Remember that we said that there was 4 models.
+
+|  Bias | Features | Models     |
+|------:|:--------:|:-----------|
+|  True |   True   | Model-ByFy |
+|  True |  False   | Model-ByFn |
+| False |   True   | Model-BnFy |
+| False |  False   | Model-BnFn |
+
+Finding the best models consist of 
+
+1. finding the best K for each of the 4 models
+2. then finding the best models between those 4 selected one previously.
+
+
 For each of our models, we ran the `CMF` algorithm, with good parameters for each value of K from 3 to 30.
 For each K, we train the model using `X.train` and `X.train.movies` if needed to obtain a model and then compute the validation error from `X.validation`.
-In the end, we plot the RMSE as a function of K and determine the best value of K.
 
+###  Model-ByFy: With bias and movies features
 
+```{r eval=FALSE}
+errors <- c()
+best_model <- NULL
+best_error <- 10e6
+
+startTime <- Sys.time()
+for (k in 3:30) {
+ log_info("Start k={k}")
+ model <- CMF(X.train, I = X.train.movies, k = k, method = 'lbfgs',
+              user_bias = TRUE, item_bias = TRUE,
+              center = TRUE,
+              # NA_as_zero = TRUE,
+              nthreads = 1, verbose = FALSE, seed = 1)
+
+ predictions <- predict(model, user=X.validation$userId, item=X.validation$movieId)
+ k_errors <- RMSE(X.validation$rating, predictions)
+
+ if (k_errors < best_error) {
+   best_model <- model
+   best_error <- k_errors
+ }
+
+ errors <- c(errors, k_errors)
+ log_info("End k={k}; Error={k_errors}")
+}
+```
+
+###  Model-ByFn: With bias but without movies features
+```{r eval=FALSE}
+errors <- c()
+best_model <- NULL
+best_error <- 10e6
+
+startTime <- Sys.time()
+for (k in 3:30) {
+  log_info("Start k={k}")
+  model <- CMF(X.train, k = k, method = 'lbfgs',
+               user_bias = TRUE, item_bias = TRUE,
+              center = TRUE,
+              # NA_as_zero = TRUE, 
+              nthreads = 1, verbose = FALSE, seed = 1)
+ 
+ predictions <- predict(model, user=X.validation$userId, item=X.validation$movieId)
+ k_errors <- RMSE(X.validation$rating, predictions)
+ 
+ if (k_errors < best_error) {
+   best_model <- model
+   best_error <- k_errors
+ }
+  
+ errors <- c(errors, k_errors)
+ log_info("End k={k}; Error={k_errors}")
+}
+endTime <- Sys.time()
+```
+
+###  Model-BnFy: Without bias but with movies features
+
+```{r eval=FALSE}
+errors <- c()
+best_model <- NULL
+best_error <- 10e6
+
+startTime <- Sys.time()
+for (k in 3:30) {
+  log_info("Start k={k}")
+  model <- CMF(X.train, k = k, method = 'lbfgs',
+               user_bias = FALSE, item_bias = FALSE,
+               center = TRUE,
+               # NA_as_zero = TRUE,
+               nthreads = 1, verbose = FALSE, seed = 1)
+
+  predictions <- predict(model, user=X.validation$userId, item=X.validation$movieId)
+  k_errors <- RMSE(X.validation$rating, predictions)
+
+  if (k_errors < best_error) {
+    best_model <- model
+    best_error <- k_errors
+  }
+
+  errors <- c(errors, k_errors)
+  log_info("End k={k}; Error={k_errors}")
+}
+endTime <- Sys.time()
+```
+
+###  Model-BnFn: Without bias and movies features
+
+```{r eval=FALSE}
+errors <- c()
+best_model <- NULL
+best_error <- 10e6
+
+startTime <- Sys.time()
+for (k in 3:30) {
+ log_info("Start k={k}")
+ model <- CMF(X.train, k = k, method = 'lbfgs',
+              user_bias = FALSE, item_bias = FALSE,
+              center = TRUE,
+              # NA_as_zero = TRUE, 
+              nthreads = 1, verbose = FALSE, seed = 1)
+  
+ predictions <- predict(model, user=X.validation$userId, item=X.validation$movieId)
+ k_errors <- RMSE(X.validation$rating, predictions)
+  
+ if (k_errors < best_error) {
+   best_model <- model
+   best_error <- k_errors
+ }
+  
+ errors <- c(errors, k_errors)
+ log_info("End k={k}; Error={k_errors}")
+}
+endTime <- Sys.time()
+```
+
+# Results
+
+At the end of the execution of each of those 4 models, we ploted a chart of the `RMSE` function to `K`.
+Here is the 4 chart.
+![With bias and movies data](./model-bias-movies.png) 
+![With bias but without movies data](./model-bias-no-movies.png) 
+![Without bias but with movies data](./model-no-bias-with-movies.png) 
+![Without bias and movies data](./model-no-bias-no-movies.png) 
+
+The three last chart show us the Bias-Variance tradeoff. We can clearly observe that at a certain times, after decreasing the RMSE start increasing, meaning that the variance has increased more than the bias, leading us into an overfitting situation.
+The value of K where the RMSE is the lowest is the best model.
+
+The first graph is different than the 3 last ones because it has decreased during many steps before being stable.
+We can ask ourselves that maybe it can improve with larger value of $k$.
+
+After plotting the model, we found the best $K$. The following table resume the results
+|  Models | Best K | RMSE     |
+|------:|:--------:|:-----------|
+| Model-ByFy |   29   | 0.831525473100835 |
+| Model-ByFn |  10   | 0.802341082970225 | 
+| Model-BnFy |   11   | 0.807520656630341 |
+| Model-BnFn |  11   | 0.807520656630341 |
+
+After this process, from the result in the table above, we can notice that the model with the minimal RMSE on validation set is the 
+model `Model-ByFn` that the one **with bias but without movie data**.
+
+We then train the whole data, that is the `edx` data with that parameters.
+```r{eval = FALSE}
+
+model <- CMF(X, k = k.min, method = 'lbfgs',
+            user_bias = TRUE, item_bias = TRUE,
+            center = TRUE,
+            # NA_as_zero = TRUE, 
+            nthreads = 1, verbose = FALSE, seed = 1)
+```
+
+The model obtain is then use to predict the rating on the `final_holdout_test` data set.
+```{r eval=FALSE}
+predictions <- predict(model, user=X.fht$userId, item=X.fht$movieId)
+fht_error <- RMSE(X.fht$rating, predictions)
+fht_error
+```
+
+We obtain the `RMSE` equal to **0.794544360572509**
+
+Note that from t
 # Conclusion
