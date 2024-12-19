@@ -225,25 +225,9 @@ plt <- ggplot(data=errors.df, aes(x = k, y = error)) + geom_line() + geom_point(
 ggsave("model-with-bias-and-movies.png", plt, path = ".")
 
 # From the plot, find the best number of factors
-#k.min <- which.min(errors)
-#log_info("k.min: {k.min}")
+k.min.1 <- which.min(errors) + 2
+log_info("k.min.1: {k.min.1}")
 
-#remove(errors.df, best_error, best_model, errors)
-
-#log_info("Train the whole date with the best K and all data")
-
-# Train the model with all the data and the best number of factors
-#model <- CMF(X, I = X.movies, k = k.min, method = 'lbfgs',
-#             user_bias = TRUE, item_bias = TRUE,
-#             center = TRUE,
-#             # NA_as_zero = TRUE,
-#             nthreads = 1, verbose = TRUE, seed = 1)
-
-# Run the model on the Hold-out Test
-#predictions <- predict(model, user=X.fht$userId, item=X.fht$movieId)
-#fht_error <- RMSE(X.fht$rating, predictions)
-#fht_error
-#log_info("The predictions error is {fht_error}")
 
 ##########################################################
 # Matrix factorization with bias but without movies data
@@ -291,47 +275,8 @@ ggsave("model-bias-no-movies.png", plt, path = ".")
 
 
 # From the plot, find the best number of factors
-#k.min <- which.min(errors)
-#log_info("k.min: {k.min}")
-
-#remove(errors.df, best_error, best_model, errors)
-
-# Compute training error using cross-validation
-# log_info("Compute the training error using cross-validation")
-# 
-# errors.cv <- c()
-# for (f in 1:5) {
-#   fold <- X.folds[[f]]
-#   
-#   model <- CMF(X[fold, ], k = k.min, method = 'lbfgs',
-#                user_bias = TRUE, item_bias = TRUE,
-#                center = TRUE,
-#                # NA_as_zero = TRUE, 
-#                nthreads = 1, verbose = FALSE, seed = 1)
-# 
-#   predictions <- predict(model, user = X[-fold, ]$userId, item = X[-fold, ]$movieId)
-#   errors.fold <- RMSE(X[-fold, ]$rating, predictions)
-#   log_info("Error on fold {f}: {errors.fold}")
-# 
-#   errors.cv <- c(errors.cv, errors.fold)
-# }
-# training.error <- mean(errors.cv)
-# log_info("CV Errors (bias/no movies): {training.error}")
-
-# Train the model with all the data and the best number of factors
-log_info("Train the whole date with the best K and all data")
-
-model <- CMF(X, k = k.min, method = 'lbfgs',
-            user_bias = TRUE, item_bias = TRUE,
-            center = TRUE,
-            # NA_as_zero = TRUE, 
-            nthreads = 1, verbose = FALSE, seed = 1)
-
-# Run the model on the Hold-out Test
-predictions <- predict(model, user=X.fht$userId, item=X.fht$movieId)
-fht_error <- RMSE(X.fht$rating, predictions)
-fht_error
-log_info("The predictions error is {fht_error}")
+k.min.2 <- which.min(errors) + 2
+log_info("k.min.2: {k.min.2}")
 
 ##########################################################
 # Matrix factorization without bias but with movies data
@@ -377,26 +322,8 @@ plt <- ggplot(data=errors.df, aes(x = k, y = error)) + geom_line() + geom_point(
 ggsave("model-no-bias-with-movies.png", plt, path = ".")
 
 # From the plot, find the best number of factors
-k.min <- which.min(errors)
-log_info("k.min: {k.min}")
-
-remove(errors.df, best_error, best_model, errors)
-
-log_info("Train the whole date with the best K and all data")
-
-# Train the model with all the data and the best number of factors
-model <- CMF(X, I = X.movies, k = k.min, method = 'lbfgs',
-             user_bias = FALSE, item_bias = FALSE,
-             center = TRUE,
-             # NA_as_zero = TRUE,
-             nthreads = 1, verbose = TRUE, seed = 1)
-
-# Run the model on the Hold-out Test
-predictions <- predict(model, user=X.fht$userId, item=X.fht$movieId)
-fht_error <- RMSE(X.fht$rating, predictions)
-fht_error
-log_info("The predictions error is {fht_error}")
-
+k.min.3 <- which.min(errors) + 2
+log_info("k.min.3: {k.min.3}")
 
 ##########################################################
 # Matrix factorization without bias and without movies data
@@ -442,46 +369,22 @@ plt <- ggplot(data=errors.df, aes(x = k, y = error)) + geom_line() + geom_point(
 ggsave("model-no-bias-no-movies.png", plt, path = ".") 
 
 # From the plot, find the best number of factors
-#k.min <- which.min(errors)
-#log_info("k.min: {k.min}")
+k.min.4 <- which.min(errors) + 2
+log_info("k.min: {k.min.4}")
 
-#remove(errors.df, best_error, best_model, errors)
+################
+# TRAIN DATA WITH ALL THE DATA
+################
 
-
-# Compute training error using cross-validation
-# errors.cv <- c()
-# for (f in 1:5) {
-#   fold <- X.folds[[f]]
-#   
-#   model <- CMF(X[fold, ], k = k.min, method = 'lbfgs',
-#                user_bias = FALSE, item_bias = FALSE,
-#                center = TRUE,
-#                # NA_as_zero = TRUE, 
-#                nthreads = 1, verbose = FALSE, seed = 1)
-#   
-#   predictions <- predict(model, user=X[-fold, ]$userId, item=X[-fold, ]$movieId)
-#   errors.fold <- RMSE(X[-fold, ]$rating, predictions)
-#   log_info("Error on fold {f}: {errors.fold}")
-#   
-#   errors.cv <- c(errors.cv, errors.fold)
-# }
-# training.error <- mean(errors.cv)
-# log_info("CV Errors (no bias/no movies): {training.error}")
-
-
-# Train the model with all the data and the best number of factors
-
-#log_info("Train the whole date with the best K and all data")
-#model <- CMF(X, k = k.min, method = 'lbfgs',
-#             user_bias = FALSE, item_bias = FALSE,
-#             center = TRUE,
-#             # NA_as_zero = TRUE, 
-#             nthreads = 1, verbose = FALSE, seed = 1)
-
+```{r eval=FALSE}
+model <- CMF(X, k = 10, method = 'lbfgs',
+            user_bias = TRUE, item_bias = TRUE,
+            center = TRUE,
+            # NA_as_zero = TRUE, 
+            nthreads = 1, verbose = FALSE, seed = 1)
+```
 # Run the model on the Hold-out Test
-#predictions <- predict(model, user=X.fht$userId, item=X.fht$movieId)
-#fht_error <- RMSE(X.fht$rating, predictions)
-#fht_error
-#log_info("The predictions error is {fht_error}")
-
-
+predictions <- predict(model, user = X.fht$userId, item = X.fht$movieId)
+fht_error <- RMSE(X.fht$rating, predictions)
+fht_error
+log_info("The predictions error is {fht_error}")

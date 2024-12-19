@@ -1,7 +1,0 @@
-INFO [2024-12-18 12:25:45] CREATE NEW FEATURES FROM MOVIES DATA
-INFO [2024-12-18 12:25:45] Multiple hot encoding applied on movie [genre]
-INFO [2024-12-18 12:36:16] Extract [year] & [title] from movie [name]
-INFO [2024-12-18 12:36:50] Create a new edx data frame with the previously created movie data
-INFO [2024-12-18 12:36:55] CREATE TRAIN AND VALIDATION SETS
-INFO [2024-12-18 12:40:28] Start k=35
-INFO [2024-12-18 13:18:41] Start k=35

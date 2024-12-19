@@ -20,6 +20,7 @@
 
 # RStudio files
 .Rproj.user/
+.virtual_documents
 
 # produced vignettes
 vignettes/*.html
@@ -54,8 +55,10 @@ ml-*
 
 # sqlite database
 movielensDB.db
+data/
 
 # knit
 report_files
+report.tex
 
 
