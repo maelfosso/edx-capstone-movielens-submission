@@ -1,7 +1,11 @@
 ---
+title: "Data Science: Capstone (Report)"
+author: "Mael FOSSO"
+date: "December 2024"
 output:
-  pdf_document: default
-  html_document: default
+  pdf_document:
+    fig_caption: yes
+    keep_tex: yes
 ---
 
 # Introduction
@@ -103,8 +107,8 @@ We starts by preparing the data, mainly feature engineering.
 -   Multiple hot encoding from genre column And after that, we split the data to into convenient data sets to use in finding the best models among the 4 defined up there.
 
 ### Multiple-hot encoding on Genre
-The `edx` dataset contains a column named `genres`. A movie can belong to multiple genres, and there are 18 different movie genres. 
-Handling string is complicated and required huge preprocessing. One simple preprocessing data we can do, is the multiple-hot encoding. 
+
+The `edx` dataset contains a column named `genres`. A movie can belong to multiple genres, and there are 18 different movie genres. Handling string is complicated and required huge preprocessing. One simple preprocessing data we can do, is the multiple-hot encoding.
 
 ```{r eval=FALSE}
 # list of all movie genres
@@ -128,8 +132,8 @@ colnames(genres.splitted) <- movie_genres
 ```
 
 ### Extract year release date
-The `edx` dataset contains a column named `title,` which includes the movie's name and release year.
-We extract the release year and use it as a movie feature like this.
+
+The `edx` dataset contains a column named `title,` which includes the movie's name and release year. We extract the release year and use it as a movie feature like this.
 
 ```{r eval=FALSE}
 log_info("Extract [year] & [title] from movie [name]")
@@ -144,6 +148,7 @@ movies.data <- cbind(movies.data, year = movies.name.splitted$year)
 ```
 
 After creating those new features, we can create a new data frame `edx.data` containing only features that we will use in training the model
+
 ```{r eval=FALSE}
 log_info("Create a new edx data frame with the previously created movie data")
 edx.data <- cbind(edx, movies.data) %>%
@@ -152,10 +157,9 @@ edx.data <- cbind(edx, movies.data) %>%
 
 ### Build the training and validation dataset
 
-As we have to find the best K, the process consists of splitting the training data set `edx.data` into training and validation data sets.
-The training data set will be used to create the model, and the validation dataset will be used to evaluate the obtained model. The process is always used for finding the best hyperparameters.
+As we have to find the best K, the process consists of splitting the training data set `edx.data` into training and validation data sets. The training data set will be used to create the model, and the validation dataset will be used to evaluate the obtained model. The process is always used for finding the best hyperparameters.
 
-We will split our `edx.data`  data set into 80% for training and 20% for validation.
+We will split our `edx.data` data set into 80% for training and 20% for validation.
 
 ```{r eval=FALSE}
 set.seed(1, sample.kind="Rounding") # if using R 3.6 or later
@@ -177,6 +181,7 @@ rm(validation_index, temp, removed)
 ```
 
 Once splitting the `edx` dataset, we then prepare the different data frame, so that they can be used in training and validation
+
 ```{r eval=FALSE}
 ## Extract (userId, movieId, rating) data frame from EDX
 X <- edx.data %>% select(userId, movieId, rating) # will be use to train the best model with all the training `edx` data.
@@ -211,16 +216,14 @@ Remember that we said that there was 4 models.
 | False |   True   | Model-BnFy |
 | False |  False   | Model-BnFn |
 
-Finding the best models consist of 
+Finding the best models consist of
 
-1. finding the best K for each of the 4 models
-2. then finding the best models between those 4 selected one previously.
+1.  finding the best K for each of the 4 models
+2.  then finding the best models between those 4 selected one previously.
 
+For each of our models, we ran the `CMF` algorithm, with good parameters for each value of K from 3 to 30. For each K, we train the model using `X.train` and `X.train.movies` if needed to obtain a model and then compute the validation error from `X.validation`.
 
-For each of our models, we ran the `CMF` algorithm, with good parameters for each value of K from 3 to 30.
-For each K, we train the model using `X.train` and `X.train.movies` if needed to obtain a model and then compute the validation error from `X.validation`.
-
-###  Model-ByFy: With bias and movies features
+### Model-ByFy: With bias and movies features
 
 ```{r eval=FALSE}
 errors <- c()
@@ -249,7 +252,8 @@ for (k in 3:30) {
 }
 ```
 
-###  Model-ByFn: With bias but without movies features
+### Model-ByFn: With bias but without movies features
+
 ```{r eval=FALSE}
 errors <- c()
 best_model <- NULL
@@ -278,7 +282,7 @@ for (k in 3:30) {
 endTime <- Sys.time()
 ```
 
-###  Model-BnFy: Without bias but with movies features
+### Model-BnFy: Without bias but with movies features
 
 ```{r eval=FALSE}
 errors <- c()
@@ -308,7 +312,7 @@ for (k in 3:30) {
 endTime <- Sys.time()
 ```
 
-###  Model-BnFn: Without bias and movies features
+### Model-BnFn: Without bias and movies features
 
 ```{r eval=FALSE}
 errors <- c()
@@ -340,33 +344,34 @@ endTime <- Sys.time()
 
 # Results
 
-At the end of the execution of each of those 4 models, we ploted a chart of the `RMSE` function to `K`.
-Here is the 4 chart.
+At the end of the execution of each of those 4 models, we ploted a chart of the `RMSE` function to `K`. Here is the 4 chart.
+
 ![With bias and movies data](./model-bias-movies.png) 
+
 ![With bias but without movies data](./model-bias-no-movies.png) 
+
 ![Without bias but with movies data](./model-no-bias-with-movies.png) 
-![Without bias and movies data](./model-no-bias-no-movies.png) 
 
-The three last chart show us the Bias-Variance tradeoff. We can clearly observe that at a certain times, after decreasing the RMSE start increasing, meaning that the variance has increased more than the bias, leading us into an overfitting situation.
-The value of K where the RMSE is the lowest is the best model.
+![Without bias and movies data](./model-no-bias-no-movies.png)
 
-The first graph is different than the 3 last ones because it has decreased during many steps before being stable.
-We can ask ourselves that maybe it can improve with larger value of $k$.
+The three last chart show us the Bias-Variance tradeoff. We can clearly observe that at a certain times, after decreasing the RMSE start increasing, meaning that the variance has increased more than the bias, leading us into an overfitting situation. The value of K where the RMSE is the lowest is the best model.
+
+The first graph is different than the 3 last ones because it has decreased during many steps before being stable. We can ask ourselves that maybe it can improve with larger value of $k$.
 
 After plotting the model, we found the best $K$. The following table resume the results
-|  Models | Best K | RMSE     |
-|------:|:--------:|:-----------|
-| Model-ByFy |   29   | 0.831525473100835 |
-| Model-ByFn |  10   | 0.802341082970225 | 
-| Model-BnFy |   11   | 0.807520656630341 |
-| Model-BnFn |  11   | 0.807520656630341 |
 
-After this process, from the result in the table above, we can notice that the model with the minimal RMSE on validation set is the 
-model `Model-ByFn` that the one **with bias but without movie data**.
+|     Models | Best K | RMSE              |
+|-----------:|:------:|:------------------|
+| Model-ByFy |   29   | 0.831525473100835 |
+| Model-ByFn |   10   | 0.802341082970225 |
+| Model-BnFy |   11   | 0.807520656630341 |
+| Model-BnFn |   11   | 0.807520656630341 |
+
+After this process, from the result in the table above, we can notice that the model with the minimal RMSE on validation set is the model `Model-ByFn` that the one **with bias but without movie data**.
 
 We then train the whole data, that is the `edx` data with that parameters.
-```r{eval = FALSE}
 
+```{r eval=FALSE}
 model <- CMF(X, k = k.min, method = 'lbfgs',
             user_bias = TRUE, item_bias = TRUE,
             center = TRUE,
@@ -375,6 +380,7 @@ model <- CMF(X, k = k.min, method = 'lbfgs',
 ```
 
 The model obtain is then use to predict the rating on the `final_holdout_test` data set.
+
 ```{r eval=FALSE}
 predictions <- predict(model, user=X.fht$userId, item=X.fht$movieId)
 fht_error <- RMSE(X.fht$rating, predictions)
@@ -383,5 +389,41 @@ fht_error
 
 We obtain the `RMSE` equal to **0.794544360572509**
 
-Note that from t
 # Conclusion
+
+We were asked to build a model for predicting rating from user on a movie. After some research, we heard that it's a machine learning problem called recommendation system. Multiple approaches exist and we decided to work on a hybrid approach consisting of mixing collaborative filtering and content-based filtering. We then propose the find the best models between 4 defined models. We found the best one after tuning each of them. We finally get the best model that gave us a RMSE of **0.794544360572509** of the hold-out set.
+
+Next, we are going to compare the 4 models using a cross-validation approach where the different folds will be created like this
+
+```{r eval=FALSE}
+
+X.folds <- createFolds(y = X$rating, k = MAX_FOLDS, list = TRUE, returnTrain = TRUE)
+
+X.fold.train = list()
+X.fold.test = list()
+X.fold.movies = list()
+
+for (f in 1:MAX_FOLDS) {
+  fold <- X.folds[[f]]
+  
+  fold.train <- X[fold, ]
+  fold.movies <- X.movies[fold, ]
+  
+  temp <- X[-fold, ]
+  
+  # Make sure userId and movieId in test set are also in train set
+  fold.test <- temp %>% 
+    semi_join(fold.train, by = "movieId") %>%
+    semi_join(fold.train, by = "userId")
+  
+  # Add rows removed from final hold-out test set back into edx set
+  removed <- anti_join(temp, fold.test)
+  fold.train <- rbind(fold.train, removed)
+  
+  X.fold.train[[f]] <- fold.train
+  X.fold.test[[f]] <- fold.test
+  X.fold.movies[[f]] <- fold.movies
+}
+```
+
+A cross-validation approach, will be used to compare the 4 models instead of training/validation data sets approach.
