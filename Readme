@@ -1,1 +1,7 @@
+If you are using Debian or Ubuntu, kindly installed these packages before running the script.
+```
 sudo apt install libcurl4-openssl-dev libfreetype6-dev libjpeg-dev libpng-dev libfontconfig1-dev libfribidi-dev libharfbuzz-dev libxml2-dev libtiff-dev libicu-dev libssl-dev zlib1g-dev make pandoc
+```
+
+# Result
+`RMSE` equal to **0.794544360572509**
